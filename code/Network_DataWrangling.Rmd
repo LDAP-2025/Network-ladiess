@@ -24,8 +24,8 @@ lapply(packages, function(pkg) {
 ```
 
 
-## Read in Data
+##  Read in Data from unzipped File
 ```{r}
-dat_wave1 <- unzip("Evaluaciones_2010.dta.zip")
+
 ```
 
