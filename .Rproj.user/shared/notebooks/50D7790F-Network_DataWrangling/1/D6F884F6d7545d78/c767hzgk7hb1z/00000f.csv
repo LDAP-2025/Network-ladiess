@@ -1,5 +1,0 @@
-"0","raw_data_wave1 <- read_dta(""unzipped_data/Evaluaciones_2010.dta"")"
-"0",""
-"0","#Filter data to onky include participant identifier ""folio"
-"0","data_wave1_f <- raw_data_wave1 %>%"
-"0","  select(folio, edad_meses, starts_with(""cbcl""))"

@@ -1,6 +1,0 @@
-"0","raw_data_wave2 <- read_dta(""unzipped_data/Evaluaciones_2012.dta"")"
-"0",""
-"0","#Filter data to onky include participant identifier ""folio"", age ""edad_meses"" and any column heading starting with cbcl "
-"0",""
-"0","data_wave2_f <- raw_data_wave1 %>%"
-"0","  select(folio, edad_meses, starts_with(""cbcl""))"

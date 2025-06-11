@@ -1,6 +1,0 @@
-"0","data_SU_W1 <- read_dta(""unzipped_data/Entrevistada_2010.dta"")"
-"0",""
-"0","#Filter data to onky include participant identifier ""folio"" and columns with alcohol use report ""G9: Asking During pregnancy did you consume an alcoholic beverage?"
-"0",""
-"0","alcohol_use_data <- data_SU_W1 %>%"
-"0","  select(folio, starts_with(""g9""))"
