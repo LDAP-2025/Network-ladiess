@@ -1,0 +1,65 @@
+# Load Data and Dependencies ----------------------------------------------
+
+library(dplyr) # for data manipulation
+library(ggplot2) # for visualizations
+library(lme4) # for multilevel models
+library(lmerTest) # for p-values
+
+data <- read.csv('heck2011 copy 3.csv', fileEncoding = "UTF-8-BOM")
+
+# MLM with Random Slope Effect --------------------------------------------
+
+data %>% 
+  filter(schcode <= 10) %>% 
+  ggplot(mapping = aes(x = ses, y = math, colour = factor(schcode))) +
+  geom_point() +
+  geom_smooth(mapping = aes(group = schcode), method = "lm", se = FALSE, fullrange = TRUE) +
+  labs(colour = "schcode")
+
+#If the covariance is positive, then a higher intercept value is associated with a higher slope. If negative, a higher intercept value is associated with a lower slope. If near-zero, there is minimal/no relationship between the intercept and slope values.
+#To estimate a random slope effect in lme4, you place the predictor for which you want a random slope before the | in the code as follows:
+
+ses_l1_random <- lmer(math ~ ses + (1 + ses|schcode), data = data, REML = TRUE)
+summary(ses_l1_random)
+
+#We can find our random effect covariance by examining our Tau matrix. The Tau matrix is called a Tau matrix because it contains the estimates for our random effect variances, 
+
+Matrix::bdiag(VarCorr(ses_l1_random))
+
+#computing the correlation between the standard deviation of the intercept variance and the standard deviation of the slope variance 
+-1.58/(1.79*0.88)
+
+#Visualising the releationship using Bayes estimates 
+empirical_bayes_data <- ranef(ses_l1_random) # extract random effects for each school
+
+empirical_bayes_intercepts <- empirical_bayes_data$schcode["(Intercept)"]
+
+empirical_bayes_slopes <- empirical_bayes_data$schcode["ses"] # extracts the SES/slope EB estimates from the list
+
+bind_cols(empirical_bayes_intercepts, empirical_bayes_slopes) %>%  # combine EB slopes and intercepts into a useable dataframe for graphing
+  ggplot(mapping = aes(x = ses, y = `(Intercept)`)) +
+  geom_point()
+
+# MLM with Crosslevel Effect ----------------------------------------------
+# Explicitly modeeling a moderating effect 
+#In other words, is there a difference in the effect of SES on math achievement in a private or public school? We can answer this question by adding school type as a predictor of SES slopes and create a cross-level interaction
+#Random slope intercation models unexplained variation in slopes across clusters and Crosslebel interaction tests a specific hypothesis about how context moderates individual relationships (wether a level 2 variable modifies the relationship between a Level-1 predictor and outcome)
+
+crosslevel_model <- lmer(math ~ 1 + ses + public + ses:public + (1 + ses|schcode), data = data, REML = TRUE)
+summary(crosslevel_model)
+
+Matrix::bdiag(VarCorr(crosslevel_model))
+
+
+#Calculating level of variance reduced between null and cross level model 
+# level-1 variance reduction
+sigma2_null <- sigma(null_model)^2
+sigma2_crosslevel <- sigma(crosslevel_model)^2
+(sigma2_null - sigma2_crosslevel) / sigma2_null
+
+# level-2 variance reduced
+tau2_null <- VarCorr(null_model)$schcode[1]
+tau2_crosslevel <- VarCorr(crosslevel_model)$schcode[1]
+(tau2_null - tau2_crosslevel) / tau2_null
+
+#Level 2  reduction of unexplained variance was of 69.7% 

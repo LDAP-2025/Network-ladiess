@@ -1,0 +1,6 @@
+"0","raw_data_wave3 <- read_sav(""unzipped_data/Evaluaciones_2017.sav"")"
+"0",""
+"0","#Filter data to onky include participant identifier ""folio"", age ""edad_meses"" and any column heading starting with cbcl "
+"0",""
+"0","data_wave3_f <- raw_data_wave3 %>%"
+"0","  select(folio, edad_mesesr, starts_with(""cbcl""))"

@@ -1,0 +1,4 @@
+"0","dat_wave1 <- unzip(""Evaluaciones_2010.dta.zip"")"
+"2","G2;H2;Warningh in unzip(""Evaluaciones_2010.dta.zip"") :
+  error 1 in extracting from zip fileg
+"

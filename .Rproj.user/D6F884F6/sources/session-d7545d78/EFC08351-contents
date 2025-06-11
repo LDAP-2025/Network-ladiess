@@ -1,0 +1,25 @@
+---
+title: "Chapter-2-Linear-Regression-Model"
+output: html_document
+date: "2025-06-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, Simple linear Regression}
+```
+
+Let’s run a simple linear regression predicting math achievement (math) from socioeconomic status (ses). The syntax for the lm() (linear modelling) command in R is lm(DV ~ IV1 + IV2 + ... + IVn, data = dataframe).
+
+Interaction Terms 
+```{r}
+model3 <- lm(math ~ ses + female + ses:female, data = data)
+```
+
+An interaction captures that the relationship between two variables may differ based on the level of another variable (i.e., different slopes for different folks). An interaction term, A:B, has two possible interpretations:
+
+The effect of A on the effect of B on your outcome Y.
+The effect of B on the effect of A on your outcome Y.
+The ses:female interaction term, .34, represents the effect of being female on the relationship between SES and math achievement. Alternatively, it could represent the effect of SES on the relationship between being female and math achievement. In this case, the latter is a more intuitive interpretation: female students from higher socioeconomic statuses are slightly insulated from the negative relationship between female and math achievement in this sample. As SES increases by one point, the relationship between being female and math achievement becomes less negative, from -1.07 to -.73 (-1.07 + .34). However, this interaction term is not statistically significantly different from zero per the p-value.

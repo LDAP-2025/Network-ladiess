@@ -1,0 +1,21 @@
+---
+title: "Chapter5-Worksheet"
+output: html_document
+date: "2025-06-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Load Data}
+library(lme4) # for multilevel models
+library(lmerTest) # for p-values
+library(performance) # for intraclass correlation
+```
+
+```{r Runnning NUll Model}
+null_model <- lmer(math ~ 1 + (1|schcode), data = data)
+summary(null_model)
+```
+

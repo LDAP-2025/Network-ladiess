@@ -1,0 +1,407 @@
+---
+title: "From regression to SEM"
+subtitle: "Intro to path analysis and DAGs"
+author: "Andrea Allegrini"
+date: "2025-05-16"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: cosmo
+    number_sections: true
+    code_folding: show
+---
+
+# From Regression to Path Diagrams
+
+In this document I provide an introduction path diagrams and path analysis, using practical examples and simulations in R. I cover the transition from simple regression models to more complex SEM frameworks, introduces key concepts such as mediation, confounding, and colliders using Directed Acyclic Graphs (DAGs).
+
+## Global Options and Packages
+
+Firs let's set global options and load the necessary packages
+
+```{r setup, include=T}
+knitr::opts_chunk$set(echo = TRUE)
+
+install.packages("OpenMx")
+
+# Load necessary packages (install if not present)
+packages <- c("lavaan", "MASS", "semPlot", "dagitty")
+lapply(packages, function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
+  library(pkg, character.only = TRUE)
+})
+```
+
+## Simulating Data
+
+It is often beneficial to simulate data first to understand how models behave and verify that they work as expected. Here we simulate a simple regression scenario.
+
+```{r}
+set.seed(12345) # For reproducibility
+n <- 10000 # Sample size
+x <- rnorm(n) # Generate random predictor variable
+
+y <- 0.2 * x + rnorm(n) # Outcome generated as a linear function of predictor + residual noise
+
+# Fit a simple linear regression model
+test_model <- lm(y ~ x)
+
+summary(test_model) 
+
+# have a look at the model and confirm that estimated coefficients align with the simulated data parameters: x-intercept coefficient should be 0.2 and intercept should be 0 
+```
+
+### Structural Equation Modeling (SEM) Framework
+
+SEM extends basic regression analysis by enabling the modeling of complex relationships using path diagrams.
+
+```{r}
+simple_model <- 'y ~ x' # Specify a simple SEM model (path model)
+df <- data.frame(x, y) # Data frame for analysis
+
+# Fit the SEM model
+fit <- lavaan::sem(simple_model, data = df)
+summary(fit, standardized = TRUE) # print  standardized model results
+
+# Visualize the SEM path diagram
+semPaths(fit, "std", edge.label.cex = 0.8)
+```
+
+## Path Analysis with DAGs
+
+### Hypothesis Testing with Path Diagrams
+
+DAGs provide a graphical representation of assumed causal relationships, it's a way of making explicit relationships between variables
+as well as underlying processes at play such as potential mediation, confounding, and collider effects.
+
+#### Mediation, Confounder, and Collider Example with `dagitty`
+
+```{r}
+# Mediation DAG example
+dag_mediation <- dagitty('dag { X -> M -> Y; X -> Y }')
+plot(dag_mediation)
+
+# Confounder DAG example
+dag_confounder <- dagitty('dag { C -> X; C -> Y; X -> Y }')
+plot(dag_confounder)
+
+# Collider DAG example
+dag_collider <- dagitty('dag { X -> C; Y -> C; X -> Y }')
+plot(dag_collider)
+```
+
+
+let's simulate a mediation and confoudner to convince ourselves of the inherent difficulty to separate between the two only based on statisical grounds, as expplained in the MacKinnon et al paper. 
+
+*MacKinnon, D. P., Krull, J. L., & Lockwood, C. M. (2000). Equivalence of the mediation, confounding and suppression effect. Prevention science, 1, 173-181.*
+
+
+For our first data generating mechanism, let's simulate a mediation:
+
+```{r}
+
+set.seed(146)
+n = 100000
+x <- rnorm(n)
+m <- .2*x + rnorm(n)
+y <- .4*m + rnorm(n)
+
+summary(lm(y ~ m ))
+summary(lm(y ~ m + x ))
+
+#I know I simulated this as mediator as testing for a simple mediaion in regression seems to confirm this 
+
+# let's try the same with path analyss
+
+# Fit SEM model explicitly testing for mediation 
+
+# NOTE that here we can also explicitly calculate Cis around the mediated effect 
+
+
+dat <- cbind(x,y,m)
+
+model <- ' # direct effect
+             y ~ c*x
+           # mediator
+             m ~ a*x
+             y ~ b*m
+           # indirect effect (a*b)
+             ab := a*b
+           # total effect
+             total := c + (a*b)
+         '
+fit <- sem(model, data = dat)
+summary(fit, standardized = TRUE)
+
+# Plot SEM path diagram
+semPaths(fit, "std", edge.label.cex = 0.8)
+```
+
+
+let's now simulate a confounder 
+
+
+```{r}
+
+
+# note that values (estimates) used are the same, the  difference is that X is unrelated to y, but m is now confounding the relationship between x and y 
+
+cnf <- rnorm(n)
+
+x <- .2*cnf + rnorm(n)
+y <- .4*cnf + rnorm(n)
+
+summary(lm(y ~ x ))
+summary(lm(y ~ cnf + x ))
+
+
+#If I didn't know it was a confoudner I would probably conclude that c is fully mediating he effect of X on y 
+
+# let's try the same with path analyss
+
+
+dat <- cbind(x,y,cnf)
+
+model <- ' # direct effect
+             y ~ c*x
+           # mediator
+             cnf ~ a*x
+             y ~ b*cnf
+           # indirect effect (a*b)
+             ab := a*b
+           # total effect
+             total := c + (a*b)
+         '
+fit <- sem(model, data = dat)
+summary(fit, standardized = TRUE)
+
+# Plot SEM path diagram
+
+semPaths(fit, "std", edge.label.cex = 0.8)
+#again a full mediation, but we know the data were generated under a confounder scenario 
+
+```
+
+The key message here is that these types of models can be distinguished on conceptual grounds rather than purely statistical ones. 
+
+**Can you think of a context that would facilitate the distinction between mediators and confounders?**
+
+
+Take home message:
+
+- Models alone cannot tell us whether a given data generating mechanism is true of false! 
+
+- there may be a number of different but statistically equivalent models that explain the data equally well... 
+
+
+## Simulating a more invovled scenario 
+
+### Data Generation
+
+Here, we simulate data with multiple correlated predictors.
+
+```{r}
+n <- 1000 # Sample size
+
+# Define correlation matrix
+cor_matrix <- matrix(c(1, 0.5, -0.3,
+                       0.5, 1, 0.4,
+                       -0.3, 0.4, 1), nrow = 3)
+
+# Define standard deviations
+sds <- c(2, 3, 4)
+
+# Convert correlation matrix to covariance matrix
+cov_matrix <- diag(sds) %*% cor_matrix %*% diag(sds)
+
+set.seed(12345) # for reproducibility
+
+# Simulate multivariate normal data
+noise <- rnorm(n, 8, 3) # Noise for outcome
+
+corpred <- MASS::mvrnorm(n, mu = c(5, 3, 4), Sigma = cov_matrix)
+
+corpred <- as.data.frame(corpred)
+names(corpred) <- c("anx", "alc", "peer") # Predictor names
+
+# Define regression coefficients
+betas <- c(-0.3, 0.2, 0.4)
+
+# Simulate outcome variable y
+y <- as.vector(betas %*% t(corpred) + noise)
+
+# Combine data into a data frame
+df <- cbind(y, corpred)
+
+# Check correlations
+cor(df)
+
+# Fit multiple regression model
+fit <- lm(y ~ anx + alc + peer, data = df)
+summary(fit)
+
+```
+
+
+We can equivalently fit a multiple regression model in SEM 
+```{r}
+
+# Fit SEM model with multiple predictors
+multiple_model <- 'y ~ anx + alc + peer'
+fit_sem <- lavaan::sem(multiple_model, data = df)
+summary(fit_sem, standardized = TRUE)
+
+# Plot SEM path diagram
+semPaths(fit_sem, "std", edge.label.cex = 0.8)
+```
+
+
+So far so good. However, this model might not adequately represent our theoretical understanding of the relationships between these variables. The multiple regression framework mainly reveals unique and joint contributions of predictors to the variance in y, showing how much these predictors jointly explain the outcome and their individual contributions beyond others.
+
+For example, we might explicitly test for the mediating effects of alcohol use while adjusting for peer influences.
+
+The DAG below illustrates hypothetical causal relationships involving anxiety, peer influence, alcohol use, and educational outcomes.
+
+
+```{r}
+dag <- dagitty('dag {
+  anx [pos="0,0"]
+  alc [pos="1,1"]
+  peer [pos="1,-1"]
+  y [pos="2,0"]
+
+  anx -> y
+  alc -> y
+  peer -> y
+  anx -> alc
+  peer -> alc
+  anx -> peer
+}')
+plot(dag)
+
+```
+
+Alternatively, if we measured additional variables such as the home environment, we could simultaneously test for this additional mediation path:
+
+```{r}
+dag <- dagitty('dag {
+  anx [pos="0,0"]
+  alc [pos="1,1"]
+  peer [pos="1,-1"]
+  y [pos="2,0"]
+
+  home -> alc
+  home -> y
+  anx -> home
+  anx -> y
+  alc -> y
+  peer -> y
+  anx -> alc
+  peer -> alc
+  anx -> peer
+}')
+plot(dag)
+
+```
+
+
+
+Path analyses allows for explicit testing of these hypotheses  
+
+```{r}
+
+# Define and fit SEM reflecting DAG structure
+multiple_model <- 'y ~ anx + alc + peer
+                   alc + peer ~ anx
+                   alc ~ peer'
+fit_dag_sem <- lavaan::sem(multiple_model, data = df)
+summary(fit_dag_sem, standardized = TRUE)
+
+# Visualize SEM path diagram
+semPaths(fit_dag_sem, "std", edge.label.cex = 0.8)
+```
+
+Remember, however, that statistical models cannot and should not be mistaken for the actual data-generating mechanisms themselves.
+
+All we have here is a variance-covariance matrix or a correlation matrix—a set of observations. We can develop theories and testable hypotheses to explain observed phenomena. With models we can attempt to capture key characteristics of data-generating processes and learn about these associated phenomena. 
+
+For further reading on theories, data and models, I strongly recommend this: https://eiko-fried.com/on-theory/
+
+
+
+```{r}
+corrplot::corrplot(cor(df))
+```
+
+Returning to our SEM framework, the pathways between anxiety and educational achievement become testable hypotheses. We can use fit indices and compare nested models to determine which best fits the data. For example, we could compare the current model to one in which anxiety affects school achievement only via peer influences.
+
+We won't go into detail on model comparison and fit indices for now, but interested groups can discuss specific examples and scenarios relevant to their projects in one to one meetings with me.
+
+For now: 1) Global fit statistics assess overall correspondence between the model and observed data, providing insight into overall model fit. 2) Comparing model fit fro mdifferent models can help identify the best-fitting model among competing options for the data at hand.
+
+## Cross-Lagged Panel Models 
+
+As we have seen panel data refers to repeated measurements of a set of variables over time, and is one of the most common types of data used in psychology.
+
+![](datacube.png)
+
+Researchers often aim to understand how two or more variables reciprocally influence each other across different time points. One of the most common methods used to analyze these reciprocal relationships is the cross-lagged panel model.
+
+Cross-lagged panel models help evaluate directional influences between variables over time, enabling researchers to better understand potential causal relationships and temporal dynamics.
+
+```{r}
+rm(list = ls()) #clears R enviroremnt by remocving all objects 
+set.seed(123)  # Ensure reproducibility
+
+n <- 10000
+
+# Simulate longitudinal data (two variables measured across three time points)
+# Variable X measured at three consecutive times
+x1 <- rnorm(n)
+x2 <- 0.5 * x1 + rnorm(n)
+x3 <- 0.5 * x2 + rnorm(n)
+
+# Variable Y influenced by its own past and past values of X
+y1 <- rnorm(n)
+y2 <- 0.5 * y1 + 0.2 * x1 + rnorm(n)
+y3 <- 0.5 * y2 + 0.1 * x2 + rnorm(n)
+
+# Combine data into a data frame
+d <- data.frame(x1, x2, x3, y1, y2, y3)
+
+# Specify the cross-lagged panel model
+clag <- '
+  # Regressions across time points
+  x3 ~ x2 + y2 
+  y3 ~ x2 + y2 
+  x2 ~ x1 + y1 
+  y2 ~ x1 + y1 
+
+  # Covariances between variables at the same time points
+  x2 ~~ y2 
+  x3 ~~ y3
+'
+
+# Fit the SEM model
+m1 <- lavaan::sem(clag, data = d)
+
+# Display model summary
+lavaan::summary(m1, standardized = TRUE)
+
+# Visualize the SEM path diagram clearly
+d <- semPaths(m1,
+         what = "est",
+         edge.label.cex = 0.8,
+         layout = "tree2",
+         rotation = 2,
+         reorder = FALSE)
+
+```
+
+## Additional Resources
+
+- [lavaan Tutorial](https://lavaan.ugent.be/tutorial/)
+- [SEM Video Series](https://www.youtube.com/playlist?list=PLliBbGBc5nn0NdoFO4nlbwZrT9TJ5V9sJ)
